@@ -48,9 +48,9 @@ extern "C" {
 #include "driver/include/m2m_wifi.h"
 
 /** Wi-Fi Settings */
-#define MAIN_WLAN_SSID                    "AP64" /**< Destination SSID */
+#define MAIN_WLAN_SSID                    "AndroidAP" /**< Destination SSID */
 #define MAIN_WLAN_AUTH                    M2M_WIFI_SEC_WPA_PSK /**< Security manner */
-#define MAIN_WLAN_PSK                     "vida101244" /**< Password for Destination SSID */
+#define MAIN_WLAN_PSK                     "brunoacpc" /**< Password for Destination SSID */
 
 #define MAIN_M2M_DEVICE_NAME "Daleee"
 #define MAIN_MAC_ADDRESS {0x42, 0x00, 0x61, 0x13, 0x9B, 0xD2}
@@ -68,7 +68,7 @@ static uint8_t gacDeviceName[] = MAIN_M2M_DEVICE_NAME;
 #define MAIN_PREFIX_BUFFER                  "GET / HTTP/1.1\r\n Accept: */*\r\n\r\n"
 
 /** Weather information provider server. */
-#define MAIN_SERVER_NAME                    "192.168.50.63"
+#define MAIN_SERVER_NAME                    "192.168.43.192"
 
 /** Receive buffer size. */
 #define MAIN_WIFI_M2M_BUFFER_SIZE           1400

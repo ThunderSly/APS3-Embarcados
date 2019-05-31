@@ -6,6 +6,8 @@ src\ASF\common\services\sleepmgr\sam\sleepmgr.c
 
 src\ASF\sam\drivers\afec\afec.c
 
+src\ASF\sam\drivers\rtc\rtc.c
+
 src\ASF\thirdparty\freertos\freertos-8.2.3\Source\croutine.c
 
 src\ASF\thirdparty\freertos\freertos-8.2.3\Source\event_groups.c
