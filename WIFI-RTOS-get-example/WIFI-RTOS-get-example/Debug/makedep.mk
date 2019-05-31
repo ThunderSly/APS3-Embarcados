@@ -86,8 +86,6 @@ src\ASF\sam\drivers\pmc\sleep.c
 
 src\ASF\sam\drivers\spi\spi.c
 
-src\ASF\sam\drivers\tc\tc.c
-
 src\ASF\sam\drivers\twihs\twihs.c
 
 src\ASF\sam\drivers\uart\uart.c

@@ -8,7 +8,7 @@ todos = {}
 
 class HelloWorld(Resource):
     def get(self):
-        return {'hello': 'world'}
+        return {'hello': 'jscjxjsjcsjsc'}
 
 class RTC(Resource):
     def get(self):
@@ -20,6 +20,7 @@ class RTC(Resource):
 
 class But(Resource):
     def get(self):
+        print("Recebi!!")
         idBut = request.args.get("id")
         return {idBut: "Pressed the Button"}
 

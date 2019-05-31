@@ -55,9 +55,9 @@ static char server_host_name[] = MAIN_SERVER_NAME;
 
 //RTC
 #define YEAR        2019
-#define MONTH		4
-#define DAY         8
-#define WEEK        15
+#define MONTH		1
+#define DAY         1
+#define WEEK        1
 #define HOUR        13
 #define MINUTE      37
 #define SECOND      0
@@ -139,32 +139,6 @@ static int32_t convert_adc_to_temp(int32_t ADC_value){
 
 void but_callback2(void){
 	xSemaphoreGiveFromISR(xSemaphoreBut, 0);
-}
-
-void RTC_Handler(void){
-	uint32_t ul_status = rtc_get_status(RTC);
-
-	/*
-	*  Verifica por qual motivo entrou
-	*  na interrupcao, se foi por segundo
-	*  ou Alarm
-	*/
-	if ((ul_status & RTC_SR_SEC) == RTC_SR_SEC) {
-		rtc_clear_status(RTC, RTC_SCCR_SECCLR);
-		xSemaphoreGiveFromISR(xSemaphoreRTC, 0);
-	}
-	
-	/* Time or date alarm */
-	if ((ul_status & RTC_SR_ALARM) == RTC_SR_ALARM) {
-		rtc_clear_status(RTC, RTC_SCCR_ALRCLR);
-	}
-	
-	
-	rtc_clear_status(RTC, RTC_SCCR_ACKCLR);
-	rtc_clear_status(RTC, RTC_SCCR_TIMCLR);
-	rtc_clear_status(RTC, RTC_SCCR_CALCLR);
-	rtc_clear_status(RTC, RTC_SCCR_TDERRCLR);
-
 }
 
 /**
@@ -263,7 +237,7 @@ void RTC_init(void){
 	rtc_set_hour_mode(RTC, 0);
 
 	/* Configura data e hora manualmente */
-	rtc_set_date(RTC, YEAR, MONTH, DAY, WEEK);
+	rtc_set_date(RTC, 2019, 1, 1, 1);
 	rtc_set_time(RTC, HOUR, MINUTE, SECOND);
 
 	/* Configure RTC interrupts */
@@ -274,6 +248,32 @@ void RTC_init(void){
 	
 	//rtc_enable_interrupt(RTC, RTC_IER_ALREN);
 	rtc_enable_interrupt(RTC,  RTC_IER_SECEN);
+}
+
+void RTC_Handler(void){
+	uint32_t ul_status = rtc_get_status(RTC);
+
+	/*
+	*  Verifica por qual motivo entrou
+	*  na interrupcao, se foi por segundo
+	*  ou Alarm
+	*/
+	if ((ul_status & RTC_SR_SEC) == RTC_SR_SEC) {
+		rtc_clear_status(RTC, RTC_SCCR_SECCLR);
+		xSemaphoreGiveFromISR(xSemaphoreRTC, 0);
+	}
+	
+	/* Time or date alarm */
+	if ((ul_status & RTC_SR_ALARM) == RTC_SR_ALARM) {
+		rtc_clear_status(RTC, RTC_SCCR_ALRCLR);
+	}
+	
+	
+	rtc_clear_status(RTC, RTC_SCCR_ACKCLR);
+	rtc_clear_status(RTC, RTC_SCCR_TIMCLR);
+	rtc_clear_status(RTC, RTC_SCCR_CALCLR);
+	rtc_clear_status(RTC, RTC_SCCR_TDERRCLR);
+
 }
 
 
@@ -378,36 +378,41 @@ static void socket_cb(SOCKET sock, uint8_t u8Msg, void *pvMsg)
 			printf("socket_msg_connect\n"); 
 			if (gbTcpConnection) {
 				memset(gau8ReceivedBuffer, 0, sizeof(gau8ReceivedBuffer));
-				sprintf((char *)gau8ReceivedBuffer, "%s", MAIN_PREFIX_BUFFER);
 
 				tstrSocketConnectMsg *pstrConnect = (tstrSocketConnectMsg *)pvMsg;
 				if (pstrConnect && pstrConnect->s8Error >= SOCK_ERR_NO_ERROR) {
-					
-					if (xQueueReceive(xQueueAfec, &(afec), ( TickType_t )  500 / portTICK_PERIOD_MS)) {
+
+					if (xQueueReceive(xQueueAfec, &(afec), ( TickType_t )  100 / portTICK_PERIOD_MS)) {
 						afec = convert_adc_to_temp(afec);
 						sprintf(b3,"GET /AFEC?value=%d&id=analog HTTP/1.1\r\n Accept: */*\r\n\r\n",afec);
-						send(tcp_client_socket, b3, 100, 0);
+						send(tcp_client_socket, b3,strlen((char *)b3), 0);
 						recv(tcp_client_socket, &gau8ReceivedBuffer[0], MAIN_WIFI_M2M_BUFFER_SIZE, 0);
 					}
 					
-					if (xSemaphoreTake(xSemaphoreRTC, (TickType_t) 500 / portTICK_PERIOD_MS)) {
+					if (xSemaphoreTake(xSemaphoreRTC, (TickType_t) 100 / portTICK_PERIOD_MS)) {
 						rtc_get_time(RTC, &hour, &minute, &second);
 						sprintf(b4,"GET /RTC?hour=%d&minute=%d&second=%d&id=time HTTP/1.1\r\n Accept: */*\r\n\r\n", hour, minute, second);
-						send(tcp_client_socket, b4, 100, 0);
+						send(tcp_client_socket, b4, strlen((char *)b4), 0);
 						recv(tcp_client_socket, &gau8ReceivedBuffer[0], MAIN_WIFI_M2M_BUFFER_SIZE, 0);
 					}
 					
-					if (xSemaphoreTake(xSemaphoreBut, (TickType_t) 500 / portTICK_PERIOD_MS)) {
-						send(tcp_client_socket, "GET /BUT?id=digital HTTP/1.1\r\n Accept: */*\r\n\r\n", 100, 0);
-						recv(tcp_client_socket, &gau8ReceivedBuffer[0], MAIN_WIFI_M2M_BUFFER_SIZE, 0);
-					}
-					printf("send \n");
-					else{
+					if (xSemaphoreTake(xSemaphoreBut, (TickType_t) 100 / portTICK_PERIOD_MS)) {
+						sprintf((char *)gau8ReceivedBuffer, "%s", "GET /BUT?id=digital HTTP/1.1\r\n Accept: */*\r\n\r\n");
 						send(tcp_client_socket, gau8ReceivedBuffer, strlen((char *)gau8ReceivedBuffer), 0);
-						memset(gau8ReceivedBuffer, 0, MAIN_WIFI_M2M_BUFFER_SIZE);
 						recv(tcp_client_socket, &gau8ReceivedBuffer[0], MAIN_WIFI_M2M_BUFFER_SIZE, 0);
 					}
-				} else {
+					
+					else{
+						sprintf((char *)gau8ReceivedBuffer, "%s", "GET /BUT?id=falso HTTP/1.1\r\n Accept: */*\r\n\r\n");
+						send(tcp_client_socket, gau8ReceivedBuffer, strlen((char *)gau8ReceivedBuffer), 0);
+						recv(tcp_client_socket, &gau8ReceivedBuffer[0], MAIN_WIFI_M2M_BUFFER_SIZE, 0);
+					}
+
+					printf("send \n");
+				
+				} 
+				
+				else {
 					printf("socket_cb: connect error!\r\n");
 					gbTcpConnection = false;
 					close(tcp_client_socket);
@@ -426,10 +431,13 @@ static void socket_cb(SOCKET sock, uint8_t u8Msg, void *pvMsg)
 
 			tstrSocketRecvMsg *pstrRecv = (tstrSocketRecvMsg *)pvMsg;
 			if (pstrRecv && pstrRecv->s16BufferSize > 0) {
-        printf(pstrRecv->pu8Buffer);
+				printf(pstrRecv->pu8Buffer);
+				
+				
 				
 				memset(gau8ReceivedBuffer, 0, sizeof(gau8ReceivedBuffer));
 				recv(tcp_client_socket, &gau8ReceivedBuffer[0], MAIN_WIFI_M2M_BUFFER_SIZE, 0);
+				printf(gau8ReceivedBuffer);
 			} else {
 				printf("socket_cb: recv error!\r\n");
 				close(tcp_client_socket);
@@ -522,7 +530,7 @@ static void task_monitor(void *pvParameters)
 
 static void task_afec(void){
 	config_ADC_TEMP_RES();
-	const TickType_t xDelay = 4000 / portTICK_PERIOD_MS;
+	const TickType_t xDelay = 1000 / portTICK_PERIOD_MS;
 	for(;;){
 		afec_start_software_conversion(AFEC0);
 		vTaskDelay(xDelay);
@@ -530,18 +538,19 @@ static void task_afec(void){
 }
 
 static void task_wifi(void *pvParameters) {
+	xQueueAfec = xQueueCreate( 10, sizeof( uint32_t ) );
+	xSemaphoreRTC = xSemaphoreCreateBinary();
+	xSemaphoreBut = xSemaphoreCreateBinary();
+	
 	tstrWifiInitParam param;
 	int8_t ret;
 	uint8_t mac_addr[6];
 	uint8_t u8IsMacAddrValid;
 	struct sockaddr_in addr_in;
 	io_init();
-	RTC_init();
 	/* Initialize the BSP. */
 	nm_bsp_init();
-	xQueueAfec = xQueueCreate( 10, sizeof( uint32_t ) );
-	xSemaphoreRTC = xSemaphoreCreateBinary();
-	xSemaphoreBut = xSemaphoreCreateBinary();
+	//RTC_init();
 	/* Initialize Wi-Fi parameters structure. */
 	memset((uint8_t *)&param, 0, sizeof(tstrWifiInitParam));
 
@@ -571,7 +580,7 @@ static void task_wifi(void *pvParameters) {
 	
   while(1){
 	  m2m_wifi_handle_events(NULL);
-
+	  
 	  if (wifi_connected == M2M_WIFI_CONNECTED) {
 		  /* Open client socket. */
 		  if (tcp_client_socket < 0) {
@@ -592,7 +601,7 @@ static void task_wifi(void *pvParameters) {
 				  gbTcpConnection = true;
 			  }
 		  }
-	  }
+		}
 	  }
 }
 
@@ -621,7 +630,6 @@ int main(void)
 	if (xTaskCreate(task_afec, "afec", TASK_LCD_STACK_SIZE, NULL, TASK_LCD_STACK_PRIORITY, NULL) != pdPASS) {
 		printf("Failed to create test afec task\r\n");
 	}
-
 	vTaskStartScheduler();
 	
 	while(1) {};
