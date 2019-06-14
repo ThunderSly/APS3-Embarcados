@@ -49,7 +49,7 @@ static char server_host_name[] = MAIN_SERVER_NAME;
 
 //BUT
 #define BUT2_PIO           PIOA                  // periferico que controla o LED
-#define BUT2_PIO_ID        ID_PIOA                    // ID do periférico PIOC (controla LED)
+#define BUT2_PIO_ID        ID_PIOA                    // ID do perifï¿½rico PIOC (controla LED)
 #define BUT2_PIO_IDX       11u                    // ID do LED no PIO
 #define BUT2_PIO_IDX_MASK  (1u << BUT2_PIO_IDX)  // Mascara para CONTROLARMOS o LED
 
@@ -61,6 +61,11 @@ static char server_host_name[] = MAIN_SERVER_NAME;
 #define HOUR        13
 #define MINUTE      37
 #define SECOND      0
+
+#define LED_PIO           PIOC
+#define LED_PIO_ID        ID_PIOC
+#define LED_PIO_IDX       8u
+#define LED_PIO_IDX_MASK  (1u << LED_PIO_IDX)
 
 volatile uint32_t hour;
 volatile uint32_t minute;
@@ -180,7 +185,7 @@ static void config_ADC_TEMP_RES(void){
 	/* configura call back */
 	afec_set_callback(AFEC0, AFEC_INTERRUPT_EOC_0,	AFEC_Temp_callback, 5);
 
-	/*** Configuracao específica do canal AFEC ***/
+	/*** Configuracao especï¿½fica do canal AFEC ***/
 	struct afec_ch_config afec_ch_cfg;
 	afec_ch_get_config_defaults(&afec_ch_cfg);
 	afec_ch_cfg.gain = AFEC_GAINVALUE_0;
@@ -199,34 +204,34 @@ static void config_ADC_TEMP_RES(void){
 	afec_temp_sensor_get_config_defaults(&afec_temp_sensor_cfg);
 	afec_temp_sensor_set_config(AFEC0, &afec_temp_sensor_cfg);
 
-	/* Selecina canal e inicializa conversão */
+	/* Selecina canal e inicializa conversï¿½o */
 	afec_channel_enable(AFEC0, AFEC_CHANNEL_TEMP_SENSOR);
 }
 
 void io_init(void)
 {
-	// Inicializa clock do periférico PIO responsavel pelo botao
+	// Inicializa clock do perifï¿½rico PIO responsavel pelo botao
 	pmc_enable_periph_clk(BUT2_PIO_ID);
 
-	// Configura PIO para lidar com o pino do botão como entrada
+	// Configura PIO para lidar com o pino do botï¿½o como entrada
 	// com pull-up
 	pio_configure(BUT2_PIO, PIO_INPUT, BUT2_PIO_IDX_MASK, PIO_PULLUP | PIO_DEBOUNCE);
 
-	// Configura interrupção no pino referente ao botao e associa
-	// função de callback caso uma interrupção for gerada
-	// a função de callback é a: but_callback()
+	// Configura interrupï¿½ï¿½o no pino referente ao botao e associa
+	// funï¿½ï¿½o de callback caso uma interrupï¿½ï¿½o for gerada
+	// a funï¿½ï¿½o de callback ï¿½ a: but_callback()
 	pio_handler_set(BUT2_PIO, BUT2_PIO_ID, BUT2_PIO_IDX_MASK, PIO_IT_FALL_EDGE,	but_callback2);
 	
 	NVIC_EnableIRQ(BUT2_PIO_ID);
 	NVIC_SetPriority(BUT2_PIO_ID, 5); // Prioridade 4
 
-	// Ativa interrupção
+	// Ativa interrupï¿½ï¿½o
 	pio_enable_interrupt(BUT2_PIO, BUT2_PIO_IDX_MASK);
 	
 	pio_get_interrupt_status(BUT2_PIO);
 
 	// Configura NVIC para receber interrupcoes do PIO do botao
-	// com prioridade 4 (quanto mais próximo de 0 maior)
+	// com prioridade 4 (quanto mais prï¿½ximo de 0 maior)
 }
 
 void RTC_init(void){
@@ -381,12 +386,13 @@ static void socket_cb(SOCKET sock, uint8_t u8Msg, void *pvMsg)
 
 				tstrSocketConnectMsg *pstrConnect = (tstrSocketConnectMsg *)pvMsg;
 				if (pstrConnect && pstrConnect->s8Error >= SOCK_ERR_NO_ERROR) {
-
+					pio_clear(LED_PIO, LED_PIO_IDX_MASK);
 					if (xQueueReceive(xQueueAfec, &(afec), ( TickType_t )  100 / portTICK_PERIOD_MS)) {
 						afec = convert_adc_to_temp(afec);
 						sprintf(b3,"GET /AFEC?value=%d&id=analog HTTP/1.1\r\n Accept: */*\r\n\r\n",afec);
 						send(tcp_client_socket, b3,strlen((char *)b3), 0);
 						recv(tcp_client_socket, &gau8ReceivedBuffer[0], MAIN_WIFI_M2M_BUFFER_SIZE, 0);
+						pio_set(LED_PIO, LED_PIO_IDX_MASK);
 					}
 					
 					if (xSemaphoreTake(xSemaphoreRTC, (TickType_t) 100 / portTICK_PERIOD_MS)) {
@@ -394,18 +400,21 @@ static void socket_cb(SOCKET sock, uint8_t u8Msg, void *pvMsg)
 						sprintf(b4,"GET /RTC?hour=%d&minute=%d&second=%d&id=time HTTP/1.1\r\n Accept: */*\r\n\r\n", hour, minute, second);
 						send(tcp_client_socket, b4, strlen((char *)b4), 0);
 						recv(tcp_client_socket, &gau8ReceivedBuffer[0], MAIN_WIFI_M2M_BUFFER_SIZE, 0);
+						pio_set(LED_PIO, LED_PIO_IDX_MASK);
 					}
 					
 					if (xSemaphoreTake(xSemaphoreBut, (TickType_t) 100 / portTICK_PERIOD_MS)) {
 						sprintf((char *)gau8ReceivedBuffer, "%s", "GET /BUT?id=digital HTTP/1.1\r\n Accept: */*\r\n\r\n");
 						send(tcp_client_socket, gau8ReceivedBuffer, strlen((char *)gau8ReceivedBuffer), 0);
 						recv(tcp_client_socket, &gau8ReceivedBuffer[0], MAIN_WIFI_M2M_BUFFER_SIZE, 0);
+						pio_set(LED_PIO, LED_PIO_IDX_MASK);
 					}
 					
 					else{
 						sprintf((char *)gau8ReceivedBuffer, "%s", "GET /BUT?id=falso HTTP/1.1\r\n Accept: */*\r\n\r\n");
 						send(tcp_client_socket, gau8ReceivedBuffer, strlen((char *)gau8ReceivedBuffer), 0);
 						recv(tcp_client_socket, &gau8ReceivedBuffer[0], MAIN_WIFI_M2M_BUFFER_SIZE, 0);
+						pio_set(LED_PIO, LED_PIO_IDX_MASK);
 					}
 
 					printf("send \n");
@@ -621,6 +630,7 @@ int main(void)
 	/* Initialize the UART console. */
 	configure_console();
 	printf(STRING_HEADER);
+	pio_set_output(LED_PIO, LED_PIO_IDX_MASK, 0, 0, 0);
 	
 	
 	if (xTaskCreate(task_wifi, "Wifi", TASK_WIFI_STACK_SIZE, NULL,TASK_WIFI_STACK_PRIORITY, NULL) != pdPASS) {
@@ -629,7 +639,8 @@ int main(void)
 	
 	if (xTaskCreate(task_afec, "afec", TASK_LCD_STACK_SIZE, NULL, TASK_LCD_STACK_PRIORITY, NULL) != pdPASS) {
 		printf("Failed to create test afec task\r\n");
-	}
+	}
+
 	vTaskStartScheduler();
 	
 	while(1) {};
